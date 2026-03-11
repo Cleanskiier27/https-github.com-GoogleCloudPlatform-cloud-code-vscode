@@ -1,0 +1,19 @@
+{
+  "name": "attachments-node-server",
+  "version": "0.1.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "train": "python ../ml/train.py --data ../ml/data/processed --epochs 1 --max-samples 16",
+    "prep-sample": "python ../ml/data_prep.py --src ../cuda-binaries --out ../ml/data/processed --limit 32"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "pino": "^8.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
