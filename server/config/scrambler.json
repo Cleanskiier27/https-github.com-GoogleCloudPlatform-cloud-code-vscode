@@ -1,0 +1,8 @@
+{
+  "rotateIntervalSeconds": 3600,
+  "secretFile": "secrets/secret.txt",
+  "bootFlag": "./tmp/os_flash_done.flag",
+  "avatarCommand": "node avatar/run-avatar.js",
+  "avatarCwd": ".",
+  "httpPort": 3010
+}
