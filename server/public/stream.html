@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<body>
+  <h3>Inference Stream</h3>
+  <input id="job" placeholder="job id" /> <button id="watch">Watch</button>
+  <pre id="log"></pre>
+<script>
+const watch = () => {
+  const id = document.getElementById('job').value;
+  const s = new EventSource('/api/stream/' + id);
+  s.onmessage = e => {
+    document.getElementById('log').innerText += e.data + '\n';
+  }
+}
+document.getElementById('watch').onclick = watch;
+</script>
+</body>
+</html>

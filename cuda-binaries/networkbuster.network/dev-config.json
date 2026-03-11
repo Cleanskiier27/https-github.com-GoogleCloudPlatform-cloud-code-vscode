@@ -1,0 +1,94 @@
+{
+  "name": "NetworkBuster Unified Dev Environment",
+  "description": "Integrated development environment with Express backend and Vite frontend",
+  "version": "1.0.0",
+  "setup": {
+    "backend": {
+      "framework": "Express.js 5.2.1",
+      "language": "Node.js 24.12.0",
+      "port": 3000,
+      "command": "node server.js",
+      "features": [
+        "REST API endpoints",
+        "Health checks",
+        "System monitoring",
+        "Control panel",
+        "AI World environment"
+      ]
+    },
+    "frontend": {
+      "framework": "Vite 5.4.21",
+      "port": 5173,
+      "command": "vite",
+      "features": [
+        "Hot Module Replacement (HMR)",
+        "Fast refresh",
+        "API proxy routing",
+        "Development server"
+      ]
+    },
+    "proxy": {
+      "target": "http://localhost:3000",
+      "routes": [
+        "/api/*",
+        "/home",
+        "/ai-world",
+        "/dashboard",
+        "/control-panel",
+        "/overlay",
+        "/blog"
+      ]
+    }
+  },
+  "scripts": {
+    "dev": "node dev-server.js",
+    "dev:backend": "node server.js",
+    "dev:frontend": "vite",
+    "dev:vite": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server.js"
+  },
+  "development": {
+    "concurrent": true,
+    "hotReload": true,
+    "apiProxy": true,
+    "sourceMap": true,
+    "autoOpen": false
+  },
+  "urls": {
+    "backend": "http://localhost:3000",
+    "frontend": "http://localhost:5173",
+    "homeHub": "http://localhost:3000/home",
+    "aiWorld": "http://localhost:3000/ai-world",
+    "controlPanel": "http://localhost:3000/control-panel",
+    "healthCheck": "http://localhost:3000/api/health",
+    "status": "http://localhost:3000/api/status"
+  },
+  "routes": {
+    "root": "/",
+    "home": "/home",
+    "aiWorld": "/ai-world",
+    "dashboard": "/dashboard",
+    "overlay": "/overlay",
+    "blog": "/blog",
+    "controlPanel": "/control-panel",
+    "api": "/api"
+  },
+  "features": {
+    "apiProxy": {
+      "enabled": true,
+      "changeOrigin": true,
+      "description": "Proxies API requests to Express backend"
+    },
+    "hotModuleReplacement": {
+      "enabled": true,
+      "port": 5173,
+      "description": "Automatic frontend updates without page reload"
+    },
+    "sourceMap": {
+      "enabled": true,
+      "description": "Debug information for development"
+    }
+  }
+}
