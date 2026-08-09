@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "networkbuster-server",
   "version": "1.0.1",
   "type": "module",
@@ -95,6 +95,6 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.2",
-    "vite": "^7.2.7"
+    "vite": "^8.2.0"
   }
 }
