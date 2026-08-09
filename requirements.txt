@@ -30,6 +30,6 @@ tqdm>=4.62.0
 click>=8.0.0
 
 # Development
-pytest>=6.2.0
+pytest>=9.1.1
 black>=21.7b0
 pylint>=2.9.0
