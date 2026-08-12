@@ -38,7 +38,7 @@
     "dev:local": "powershell -ExecutionPolicy Bypass -File start-local-dev.ps1",
     "build": "npm install",
     "apply:network-boost": "powershell -ExecutionPolicy Bypass -File scripts/network-boost.ps1 -Apply -Confirm:$false",
-    "show:network-boost": "powershell -ExecutionPolicy Bypass -File scripts/network-boost.ps1"
+    "show:network-boost": "powershell -ExecutionPolicy Bypass -File scripts/network-boost.ps1",
     "test": "echo 'No tests specified'",
     "docker:build": "docker build -t networkbuster:latest .",
     "docker:run": "docker run -p 3000:3000 networkbuster:latest",

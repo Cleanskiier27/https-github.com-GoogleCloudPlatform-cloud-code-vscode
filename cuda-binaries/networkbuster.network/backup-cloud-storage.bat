@@ -1,3 +1,4 @@
 @echo off
-node cloud-storage-manager.js backup
+powershell -ExecutionPolicy Bypass -File cloud-storage-manager.ps1 backup
+pause
 pause

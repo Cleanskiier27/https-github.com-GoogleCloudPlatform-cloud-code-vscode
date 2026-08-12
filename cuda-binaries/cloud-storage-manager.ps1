@@ -13,7 +13,7 @@ Import/Export between C: Desktop and D: Cloud Storage
 
 param(
     [Parameter(Mandatory=$false)]
-    [ValidateSet('init', 'import', 'export', 'sync', 'backup', 'restore', 'status')]
+    [ValidateSet('init', 'import', 'export', 'sync', 'backup', 'restore', 'status', 'attach-pfx', 'create-pfx')]
     [string]$Action = 'status'
 )
 
@@ -22,6 +22,8 @@ $cloudPath = "D:\networkbuster-cloud"
 $backupPath = "$cloudPath\backups"
 $importPath = "$cloudPath\imports"
 $exportPath = "$cloudPath\exports"
+$certificatePath = "$cloudPath\certificates"
+$defaultPfxSource = 'C:\Users\daypi\Downloads\daypirate2\.codeoss\cli\networkbustersetup.pfx'
 
 Write-Host @"
 ╔════════════════════════════════════════════════════════════╗
@@ -34,7 +36,7 @@ Write-Host @"
 function Initialize-CloudStorage {
     Write-Host "`n[INIT] Setting up cloud storage structure..." -ForegroundColor Yellow
     
-    $dirs = @($cloudPath, $backupPath, $importPath, $exportPath)
+    $dirs = @($cloudPath, $backupPath, $importPath, $exportPath, $certificatePath)
     
     foreach ($dir in $dirs) {
         if (-not (Test-Path $dir)) {
@@ -67,6 +69,94 @@ function Initialize-CloudStorage {
     }
     
     Write-Host "`n[SUCCESS] Cloud storage initialized!" -ForegroundColor Green
+}
+
+function New-RandomPassword {
+    param(
+        [int]$Length = 32
+    )
+
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%_-+=' 
+    $bytes = New-Object byte[] $Length
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    return -join ($bytes | ForEach-Object { $alphabet[$_ % $alphabet.Length] })
+}
+
+function Write-CertificateManifest {
+    param(
+        [string]$OutputPath,
+        [string]$PasswordPath,
+        [string]$Subject,
+        [string]$Thumbprint,
+        [string]$DnsName,
+        [string]$Password
+    )
+
+    $manifest = @{
+        timestamp = Get-Date -Format 'o'
+        subject = $Subject
+        thumbprint = $Thumbprint
+        dnsName = $DnsName
+        pfxPath = $OutputPath
+        passwordPath = $PasswordPath
+        purpose = 'User-controlled certificate for NetworkBuster deployment'
+    } | ConvertTo-Json
+
+    $manifestPath = Join-Path $certificatePath 'networkbustersetup.manifest.json'
+    $manifest | Out-File -FilePath $manifestPath -Force
+    $Password | Set-Content -Path $PasswordPath -Force
+
+    Write-Host "  [OK] Manifest written: $manifestPath" -ForegroundColor Green
+    Write-Host "  [OK] Password written: $PasswordPath" -ForegroundColor Green
+}
+
+function Test-ControlledPfx {
+    param(
+        [string]$PfxPath
+    )
+
+    $manifestPath = [System.IO.Path]::ChangeExtension($PfxPath, '.manifest.json')
+    $passwordPath = [System.IO.Path]::ChangeExtension($PfxPath, '.password.txt')
+
+    if (-not (Test-Path $manifestPath) -or -not (Test-Path $passwordPath)) {
+        return $false
+    }
+
+    try {
+        $manifest = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+    } catch {
+        return $false
+    }
+
+    return $manifest.purpose -eq 'User-controlled certificate for NetworkBuster deployment'
+}
+
+function New-ControlledPfx {
+    param(
+        [string]$OutputPath = (Join-Path $certificatePath 'networkbustersetup.pfx'),
+        [string]$DnsName = 'networkbuster.local',
+        [string]$Subject = 'CN=NetworkBuster Setup',
+        [string]$Password
+    )
+
+    if (-not $Password) {
+        $Password = New-RandomPassword
+    }
+
+    if (-not (Test-Path $certificatePath)) {
+        New-Item -ItemType Directory -Path $certificatePath -Force | Out-Null
+    }
+
+    $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+    $certificate = New-SelfSignedCertificate -Subject $Subject -DnsName $DnsName -CertStoreLocation 'Cert:\CurrentUser\My' -FriendlyName 'NetworkBuster Setup Certificate' -KeyExportPolicy Exportable -KeySpec Signature -NotAfter (Get-Date).AddYears(2) -HashAlgorithm 'SHA256'
+
+    Export-PfxCertificate -Cert $certificate -FilePath $OutputPath -Password $securePassword -Force | Out-Null
+
+    $passwordPath = [System.IO.Path]::ChangeExtension($OutputPath, '.password.txt')
+    Write-CertificateManifest -OutputPath $OutputPath -PasswordPath $passwordPath -Subject $Subject -Thumbprint $certificate.Thumbprint -DnsName $DnsName -Password $Password
+
+    Write-Host "  [OK] Created self-signed certificate: $($certificate.Thumbprint)" -ForegroundColor Green
+    Write-Host "  [OK] Exported PFX: $OutputPath" -ForegroundColor Green
 }
 
 # Import from cloud
@@ -149,7 +239,7 @@ function Export-ToCloud {
         items = $itemsToExport
     } | ConvertTo-Json
     
-    $manifest | Out-File -Path "$exportPath\MANIFEST.json" -Force
+    $manifest | Out-File -FilePath "$exportPath\MANIFEST.json" -Force
     Write-Host "  [OK] Manifest created" -ForegroundColor Green
 }
 
@@ -240,6 +330,62 @@ function Restore-FromCloud {
     Write-Host "`nTo restore, run: restore-networkbuster.ps1 -BackupIndex <number>"
 }
 
+# Attach PFX certificate to cloud storage
+function Attach-PfxToCloud {
+    param(
+        [string]$SourcePath,
+        [string]$Password
+    )
+
+    Write-Host "`n[CERT] Attaching PFX certificate to D: cloud storage..." -ForegroundColor Yellow
+
+    if (-not (Test-Path $certificatePath)) {
+        New-Item -ItemType Directory -Path $certificatePath -Force | Out-Null
+        Write-Host "  [OK] Created certificates folder: $certificatePath" -ForegroundColor Green
+    }
+
+    $destinationPath = Join-Path $certificatePath 'networkbustersetup.pfx'
+    $passwordPath = [System.IO.Path]::ChangeExtension($destinationPath, '.password.txt')
+
+    if (-not $PSBoundParameters.ContainsKey('SourcePath')) {
+        if ((Test-Path $destinationPath) -and (Test-ControlledPfx -PfxPath $destinationPath)) {
+            Write-Host "  [OK] Using existing controlled PFX: $destinationPath" -ForegroundColor Green
+            return
+        }
+
+        if (Test-Path $destinationPath) {
+            Write-Host "  [WARN] Existing PFX was not created by the controlled workflow; regenerating." -ForegroundColor Yellow
+        }
+
+        Write-Host "  [INFO] No source PFX supplied; creating a new controlled PFX." -ForegroundColor Cyan
+        New-ControlledPfx -OutputPath $destinationPath -Password $Password
+        Write-Host "  [OK] Controlled certificate ready at: $destinationPath" -ForegroundColor Green
+        return
+    }
+
+    if (Test-Path $SourcePath) {
+        Copy-Item -Path $SourcePath -Destination $destinationPath -Force
+
+        $manifest = @{
+            timestamp = Get-Date -Format 'o'
+            source = $SourcePath
+            destination = $destinationPath
+            purpose = 'D: cloud certificate attachment'
+        } | ConvertTo-Json
+
+        $manifest | Out-File -FilePath (Join-Path $certificatePath 'networkbustersetup.manifest.json') -Force
+
+        Write-Host "  [OK] Copied PFX to: $destinationPath" -ForegroundColor Green
+        Write-Host "  [OK] Manifest written: $(Join-Path $certificatePath 'networkbustersetup.manifest.json')" -ForegroundColor Green
+        return
+    }
+
+    Write-Host "  [WARN] Source PFX not found: $SourcePath" -ForegroundColor Yellow
+    Write-Host "  [INFO] Creating a new controlled PFX in cloud storage instead." -ForegroundColor Cyan
+    New-ControlledPfx -OutputPath $destinationPath -Password $Password
+    Write-Host "  [OK] Controlled certificate ready at: $destinationPath" -ForegroundColor Green
+}
+
 # Show status
 function Show-Status {
     Write-Host "`n[STATUS] Cloud Storage Configuration" -ForegroundColor Yellow
@@ -297,6 +443,12 @@ switch ($Action) {
     }
     'restore' {
         Restore-FromCloud
+    }
+    'attach-pfx' {
+        Attach-PfxToCloud
+    }
+    'create-pfx' {
+        New-ControlledPfx
     }
     'status' {
         Show-Status
