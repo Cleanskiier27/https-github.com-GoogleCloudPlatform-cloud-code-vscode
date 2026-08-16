@@ -20,7 +20,7 @@ opencv-python>=4.5.0
 # Server/Web
 flask>=2.0.0
 fastapi>=0.68.0
-uvicorn>=0.15.0
+uvicorn>=0.52.3
 requests>=2.26.0
 
 # Utilities
